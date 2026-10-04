@@ -1,0 +1,60 @@
+name: AnimeWorld APK Build
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+
+      - name: Extract Android Project
+        run: |
+          mkdir -p android-project
+          ZIP=$(find . -maxdepth 2 -name "*.zip" | head -n 1)
+          if [ -z "$ZIP" ]; then
+            echo "ERROR: Project ZIP not found"
+            exit 1
+          fi
+          unzip -q "$ZIP" -d android-project
+
+      - name: Find Android Project
+        run: |
+          FILE=$(find android-project -type f \( -name "settings.gradle" -o -name "settings.gradle.kts" \) | head -n 1)
+          if [ -z "$FILE" ]; then
+            echo "ERROR: settings.gradle not found"
+            exit 1
+          fi
+          echo "PROJECT_DIR=$(dirname "$FILE")" >> $GITHUB_ENV
+
+      - name: Build APK
+        run: |
+          gradle -p "$PROJECT_DIR" assembleDebug
+
+      - name: Check APK
+        run: |
+          find "$PROJECT_DIR" -type f -name "*.apk"
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: AnimeWorld-APK
+          path: "**/build/outputs/apk/debug/*.apk"
+          if-no-files-found: error
